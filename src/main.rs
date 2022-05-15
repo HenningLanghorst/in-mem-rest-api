@@ -1,14 +1,23 @@
+use std::error::Error;
+use std::net::SocketAddr;
 use serde_json::{json, Value};
 use warp::http::Response;
 use warp::path::FullPath;
 use warp::Filter;
+use clap::Parser;
+use crate::cli_parameters::CliParams;
 
 use crate::database::{ConcurrentDatabase, DatabaseAccess, DatabaseError};
 
 mod database;
+mod cli_parameters;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn Error>> {
+    let params: CliParams = CliParams::parse();
+    let socket_address: SocketAddr = params.socket_address.parse::<SocketAddr>()
+        .map_err(|e| format!("Cannot parse socket address: {}", e))?;
+
     let original: ConcurrentDatabase = DatabaseAccess::new();
 
     let database: ConcurrentDatabase = original.clone();
@@ -40,5 +49,7 @@ async fn main() {
             }
         });
 
-    warp::serve(post.or(get)).run(([127, 0, 0, 1], 3030)).await;
+    warp::serve(post.or(get)).run(socket_address).await;
+
+    Ok(())
 }
